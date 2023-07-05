@@ -21,12 +21,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
-
-
 # Load required libraries
-library(rgee)       # Interacting with Google Earth Engine
-library(sf)         # Spatial data handling
+library(rgee) # Interacting with Google Earth Engine
+library(sf) # Spatial data handling
 
 # Load the utility functions from 'utils.R' file
 source("utils.R")
@@ -34,21 +31,20 @@ source("utils.R")
 # Initialize EE
 ee_Initialize()
 
-
 # Load initial dataset
 metadata <- read_sf("Data/s2landsatpairs.geojson")
 
 # Create metadata table for Landsat 8 (L8), Landsat 9 (L9) OLI, and Sentinel-2 MSI images with a time difference of 10 minutes
 container <- list()
 
-for (index in 1:nrow(metadata)) {  # Iterate over each row in the metadata
-  
+for (index in 2:2) { # Iterate over each row in the metadata
+
   # Print the index value
   print(index)
-  
+
   # Get the coordinate data for the current row
-  coordinate <- metadata[index,]
-  
+  coordinate <- metadata[index, ]
+
   # Get metadata for satellite images
   container[[index]] <- get_metadata(
     sensorMSI = "COPERNICUS/S2_SR_HARMONIZED",
@@ -58,28 +54,25 @@ for (index in 1:nrow(metadata)) {  # Iterate over each row in the metadata
     sensorOLI9T2 = "LANDSAT/LC09/C02/T2_L2",
     timediff = 10, # Set the time difference to 10 minutes
     point = coordinate
-    )
-  
-  tryCatch({
-    # Download satellite images
-    for(x in 1:nrow(container[[index]])) {
-      download(img1 = container[[index]][x, ]$msi_id,
-               img2 = container[[index]][x, ]$oli_id, 
-               point = coordinate,
-               output = "Results")
+  )
+
+  tryCatch(
+    {
+      # Download satellite images
+      for (x in 1:nrow(container[[index]])) {
+        download(
+          img1 = container[[index]][x, ]$msi_id,
+          img2 = container[[index]][x, ]$oli_id,
+          point = coordinate,
+          output = "Results"
+        )
+      }
+    },
+    error = function(e) {
+      return()
     }
-  }, error = function(e) {
-    return()
-  })
+  )
 }
 # Combine the metadata from all the containers into a single table
-id_metadata <- do.call(rbind, container) 
-
-
-
-
-# write.csv(metadata_L51,"D:/CURSOS_2022/Repos/dataset3/GetIDMetadata/dataset3_L4andL5/data/L5.csv", row.names = F)
-
-sensor_id <- gsub(".*/.*/(.*)", "\\1", "LANDSAT/LC08/C02/T1_L2/LC08_039014_20220929")
-sensor_id
+id_metadata <- do.call(rbind, container)
 

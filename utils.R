@@ -69,7 +69,7 @@ get_metadata <- function(sensorMSI, sensorOLI8T1, sensorOLI8T2, sensorOLI9T1, se
   oli_ic <- rbind(oli8_ic1, oli8_ic2, oli9_ic1, oli9_ic2)
 
   # Check if there is any image in the collection
-  if (check_01(oli_c)) {
+  if (check_01(oli_ic)) {
     return(NULL)
   }
 
