@@ -6,6 +6,7 @@ library(rgee) # Interacting with Google Earth Engine
 library(sf) # Spatial data handling
 
 
+
 #' Check if a DataFrame is empty
 #'
 #' This function checks if a DataFrame is empty by evaluating the number of rows.
@@ -20,6 +21,8 @@ check_01 <- function(df) {
     FALSE
   }
 }
+
+
 
 #' Get Metadata
 #'
@@ -98,10 +101,14 @@ get_metadata <- function(sensorMSI, sensorOLI8T1, sensorOLI8T2, sensorOLI9T1, se
   data.frame(
     msi_id = final_msi_ic$id,
     oli_id = final_oli_ic$id,
+    dif_time = round(final_time, 1),
     roi_id = point$s2tile,
-    dif_time = round(final_time, 1)
+    roi_x = st_coordinates(point)[1],
+    roi_y = st_coordinates(point)[2]
   )
 }
+
+
 
 #' Download Earth Engine Images
 #'
@@ -164,3 +171,84 @@ download <- function(img1, img2, point, output) {
     )
   }
 }
+
+
+
+#' Download and process satellite images
+#'
+#' This function downloads satellite images based on the given metadata and performs
+#' necessary processing and saving operations.
+#'
+#' @param index The index value indicating the current point number.
+#' @param metadata The metadata containing information about satellite images.
+#' @param pathIMG The path where the downloaded images will be saved.
+#' @param pathMDT The path and filename for saving the metadata.
+#'
+#' @examples
+#' # Download satellite images for a given set of metadata
+
+ImagesDownload <-
+  function(index, metadata, pathIMG, pathMDT) { 
+    
+    # Print the index value
+    cat(
+      crayon::bgGreen(
+        crayon::black(
+          sprintf("Point number: %1$05d\n", index)
+        )
+      )
+    )
+    
+    # Get the coordinate data for the current row
+    coordinate <- metadata[index, ]
+    
+    # Get metadata for satellite images
+    container <- get_metadata(
+      sensorMSI = "COPERNICUS/S2_SR_HARMONIZED",
+      sensorOLI8T1 = "LANDSAT/LC08/C02/T1_L2",
+      sensorOLI8T2 = "LANDSAT/LC08/C02/T2_L2",
+      sensorOLI9T1 = "LANDSAT/LC09/C02/T1_L2",
+      sensorOLI9T2 = "LANDSAT/LC09/C02/T2_L2",
+      timediff = 10, # Set the time difference to 10 minutes
+      point = coordinate
+    )
+    
+    # Download satellite images
+    tryCatch(
+      {
+        
+        for (x in 1:nrow(container)) {
+          download(
+            img1 = container[x, ]$msi_id,
+            img2 = container[x, ]$oli_id,
+            point = coordinate,
+            output = pathIMG
+          )
+        }
+      },
+      error = function(e) {
+        return()
+      }
+    )
+    
+    # Assign the value of 'index' to the 'index' column in 'container'
+    container$index <- index
+    
+    if (index == 1) {
+      # If it's the first index, save container as a new file
+      saveRDS(container, pathMDT)
+    } else {
+      # If it's not the first index, merge container with existing file
+      containerOLD <- readRDS(pathMDT)
+      container <- bind_rows(containerOLD, container)
+      orden <- order(container$index, container$msi_id, container$oli_id)
+      container <- container[orden, ]
+      # container <- container[!is.na(container$msi_id),]
+      
+      # Save container as an RDS file
+      saveRDS(
+        object = container,
+        file = pathMDT
+      )
+    }
+  }

@@ -22,6 +22,9 @@
 # SOFTWARE.
 
 # Load required libraries
+library(lubridate) # For date and time manipulation
+library(rgeeExtra) # Extended functionality for Google Earth Engine
+library(dplyr) # Data manipulation and transformation
 library(rgee) # Interacting with Google Earth Engine
 library(sf) # Spatial data handling
 
@@ -31,47 +34,10 @@ source("utils.R")
 # Initialize EE
 ee_Initialize()
 
-# Load initial dataset
-metadata <- read_sf("Data/s2landsatpairs.geojson")
-
-# Create metadata table for Landsat 8 (L8), Landsat 9 (L9) OLI, and Sentinel-2 MSI images with a time difference of 10 minutes
-container <- list()
-
-for (index in 1:nrow(metadata)) { # Iterate over each row in the metadata
-
-  # Print the index value
-  print(index)
-
-  # Get the coordinate data for the current row
-  coordinate <- metadata[index, ]
-
-  # Get metadata for satellite images
-  container[[index]] <- get_metadata(
-    sensorMSI = "COPERNICUS/S2_SR_HARMONIZED",
-    sensorOLI8T1 = "LANDSAT/LC08/C02/T1_L2",
-    sensorOLI8T2 = "LANDSAT/LC08/C02/T2_L2",
-    sensorOLI9T1 = "LANDSAT/LC09/C02/T1_L2",
-    sensorOLI9T2 = "LANDSAT/LC09/C02/T2_L2",
-    timediff = 10, # Set the time difference to 10 minutes
-    point = coordinate
-  )
-
-  tryCatch(
-    {
-      # Download satellite images
-      for (x in 1:nrow(container[[index]])) {
-        download(
-          img1 = container[[index]][x, ]$msi_id,
-          img2 = container[[index]][x, ]$oli_id,
-          point = coordinate,
-          output = "D:/CURSOS_2022/Repos/AndesDataCube/Diff10mLTS2/Results"
-        )
-      }
-    },
-    error = function(e) {
-      return()
-    }
-  )
-}
-# Combine the metadata from all the containers into a single table
-id_metadata <- do.call(rbind, container)
+# Iterate over each row in 'PointS2' and apply the 'ImagesDownload' and 'get_metadata' function
+PointS2 <- read_sf("Data/s2landsatpairs.geojson")
+lapply(1:nrow(PointS2), 
+       ImagesDownload, 
+       metadata = PointS2, 
+       pathIMG = "Results", 
+       pathMDT = "exports/Container.RDS")
