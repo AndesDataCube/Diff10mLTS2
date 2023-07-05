@@ -8,9 +8,9 @@ Welcome to the Repository for Spatial Data Processing and Metadata Retrieval! He
 2. Metadata Retrieval 📄
    - Function `get_metadata` (main.R): Retrieves metadata from different image collections, including MSI image IDs, OLI image IDs, ROI IDs, and time differences.
 3. Earth Engine Image Download 📥
-   - Function `download` (main.R): Downloads Earth Engine images based on the specified parameters. Adjusts the geotransform of Sentinel-2 images to ensure proper alignment and prevent errors in the downloaded images.
-4. ImagesDownload 🖼️
-   - Downloads satellite images, retrieves metadata, and saves them as files. Assigns the index to the 'index' column in the metadata and merges or saves the metadata based on the index value.
+   - Function `download` (utils.R): Downloads Earth Engine images based on the specified parameters. Adjusts the geotransform of Sentinel-2 images to ensure proper alignment and prevent errors in the downloaded images.
+4. Metadata Retrieval and Image Download 🖼️
+   - Function `ImagesDownload` (utils.R): Downloads satellite images, retrieves metadata, and saves them as files. Assigns the index to the 'index' column in the metadata and merges or saves the metadata based on the index value.
 
 ## 📂 Repository Contents 📂
 The repository is structured as follows:
