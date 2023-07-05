@@ -147,7 +147,7 @@ download <- function(img1, img2, point, output) {
   new_geom_utm <- st_sfc(st_point(c(new_x, new_y)), crs = proj_crs)
 
   # Create ROI
-  roi <- new_geom_utm %>% st_buffer(556 * 10, endCapStyle = "SQUARE")
+  roi <- new_geom_utm %>% st_buffer(3*4*30*32, endCapStyle = "SQUARE")
   ee_roi <- sf_as_ee(roi, proj = proj_crs)
 
   # Download the data
@@ -166,7 +166,7 @@ download <- function(img1, img2, point, output) {
     hr_image <- ee_as_rast(
       image = LT_crs,
       region = ee_roi,
-      scale = 30,
+      scale = 10,
       dsn = output_file2
     )
   }
