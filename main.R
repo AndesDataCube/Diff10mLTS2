@@ -37,7 +37,7 @@ metadata <- read_sf("Data/s2landsatpairs.geojson")
 # Create metadata table for Landsat 8 (L8), Landsat 9 (L9) OLI, and Sentinel-2 MSI images with a time difference of 10 minutes
 container <- list()
 
-for (index in 2:2) { # Iterate over each row in the metadata
+for (index in 1:nrow(metadata)) { # Iterate over each row in the metadata
 
   # Print the index value
   print(index)
@@ -64,7 +64,7 @@ for (index in 2:2) { # Iterate over each row in the metadata
           img1 = container[[index]][x, ]$msi_id,
           img2 = container[[index]][x, ]$oli_id,
           point = coordinate,
-          output = "Results"
+          output = "D:/CURSOS_2022/Repos/AndesDataCube/Diff10mLTS2/Results"
         )
       }
     },
@@ -75,4 +75,3 @@ for (index in 2:2) { # Iterate over each row in the metadata
 }
 # Combine the metadata from all the containers into a single table
 id_metadata <- do.call(rbind, container)
-
