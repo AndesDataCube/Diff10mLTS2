@@ -6,7 +6,7 @@ Welcome to the Repository for Spatial Data Processing and Metadata Retrieval! He
 1. Empty DataFrame Check ✅
    - Function `check_01` (utils.R): Checks if a DataFrame is empty by evaluating the number of rows.
 2. Metadata Retrieval 📄
-   - Function `get_metadata` (main.R): Retrieves metadata from different image collections, including MSI image IDs, OLI image IDs, ROI IDs, and time differences.
+   - Function `get_metadata` (utils.R): Retrieves metadata from different image collections, including MSI image IDs, OLI image IDs, ROI IDs, and time differences.
 3. Earth Engine Image Download 📥
    - Function `download` (utils.R): Downloads Earth Engine images based on the specified parameters. Adjusts the geotransform of Sentinel-2 images to ensure proper alignment and prevent errors in the downloaded images.
 4. Metadata Retrieval and Image Download 🖼️
