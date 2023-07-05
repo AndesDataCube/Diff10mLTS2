@@ -204,11 +204,11 @@ ImagesDownload <-
     
     # Get metadata for satellite images
     container <- get_metadata(
-      sensorMSI = "COPERNICUS/S2_SR_HARMONIZED",
-      sensorOLI8T1 = "LANDSAT/LC08/C02/T1_L2",
-      sensorOLI8T2 = "LANDSAT/LC08/C02/T2_L2",
-      sensorOLI9T1 = "LANDSAT/LC09/C02/T1_L2",
-      sensorOLI9T2 = "LANDSAT/LC09/C02/T2_L2",
+      sensorMSI = "COPERNICUS/S2_HARMONIZED",
+      sensorOLI8T1 = "LANDSAT/LC08/C02/T1_TOA",
+      sensorOLI8T2 = "LANDSAT/LC08/C02/T2_TOA",
+      sensorOLI9T1 = "LANDSAT/LC09/C02/T1_TOA",
+      sensorOLI9T2 = "LANDSAT/LC09/C02/T2_TOA",
       timediff = 10, # Set the time difference to 10 minutes
       point = coordinate
     )
