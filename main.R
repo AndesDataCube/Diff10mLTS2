@@ -74,4 +74,5 @@ for (index in 1:2) { # Iterate over each row in the metadata
 }
 # Combine the metadata from all the containers into a single table
 id_metadata <- do.call(rbind, container)
+id_metadata <- id_metadata[!is.na(id_metadata$msi_id),]
 write.csv("exports/metadata.csv")
