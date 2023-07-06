@@ -1,250 +1,77 @@
+# /*
+# MIT License
+#
+# Copyright (c) [2023] [AndesDataCube team]
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
+
 # Load required libraries
-library(lubridate) # For date and time manipulation
-library(rgeeExtra) # Extended functionality for Google Earth Engine
-library(dplyr) # Data manipulation and transformation
 library(rgee) # Interacting with Google Earth Engine
 library(sf) # Spatial data handling
 
+# Load the utility functions from 'utils.R' file
+source("utils.R")
 
+# Initialize EE
+ee_Initialize()
 
-#' Check if a DataFrame is empty
-#'
-#' This function checks if a DataFrame is empty by evaluating the number of rows.
-#'
-#' @param df The DataFrame to be checked.
-#'
-#' @return TRUE if the DataFrame is empty, FALSE otherwise.
-check_01 <- function(df) {
-  if (nrow(df) == 0) {
-    TRUE
-  } else {
-    FALSE
-  }
-}
+# Load initial dataset
+metadata <- read_sf("Data/s2landsatpairs.geojson")
 
+# Create metadata table for Landsat 8 (L8), Landsat 9 (L9) OLI, and Sentinel-2 MSI images with a time difference of 10 minutes
+container <- list()
 
+for (index in 1:2) { # Iterate over each row in the metadata
 
-#' Get Metadata
-#'
-#' This function retrieves metadata from different image collections based on specified parameters.
-#'
-#' @param sensorMSI The sensor ID for the MSI image collection.
-#' @param sensorOLI8T1 The sensor ID for the OLI8 T1 image collection.
-#' @param sensorOLI8T2 The sensor ID for the OLI8 T2 image collection.
-#' @param sensorOLI9T1 The sensor ID for the OLI9 T1 image collection.
-#' @param sensorOLI9T2 The sensor ID for the OLI9 T2 image collection.
-#' @param timediff The time difference in minutes used for image filtering.
-#' @param point The spatial point used as the filter bounds.
-#' @param output The output directory for the resulting metadata.
-#'
-#' @return A data frame containing the retrieved metadata, including MSI ID, OLI ID, ROI ID, and time difference.
-get_metadata <- function(sensorMSI, sensorOLI8T1, sensorOLI8T2, sensorOLI9T1, sensorOLI9T2, timediff, point, output) {
-  # From local to EE server
-  ee_point <- sf_as_ee(point$geometry)
+  # Print the index value
+  print(index)
 
-  # Get the dates of the MSI image
-  msi_ic <- ee$ImageCollection(sensorMSI) %>%
-    ee$ImageCollection$filterBounds(ee_point) %>%
-    ee_get_date_ic()
+  # Get the coordinate data for the current row
+  coordinate <- metadata[index, ]
 
-  # Check if there is any image in the collection
-  if (check_01(msi_ic)) {
-    return(NULL)
-  }
-
-  # Get the dates of the OLI8 images
-  oli8_ic1 <- ee$ImageCollection(sensorOLI8T1) %>%
-    ee$ImageCollection$filterBounds(ee_point) %>%
-    ee_get_date_ic()
-  oli8_ic2 <- ee$ImageCollection(sensorOLI8T2) %>%
-    ee$ImageCollection$filterBounds(ee_point) %>%
-    ee_get_date_ic()
-
-  # Get the dates of the OLI9 images
-  oli9_ic1 <- ee$ImageCollection(sensorOLI9T1) %>%
-    ee$ImageCollection$filterBounds(ee_point) %>%
-    ee_get_date_ic()
-  oli9_ic2 <- ee$ImageCollection(sensorOLI9T2) %>%
-    ee$ImageCollection$filterBounds(ee_point) %>%
-    ee_get_date_ic()
-
-  # Merge OLI
-  oli_ic <- rbind(oli8_ic1, oli8_ic2, oli9_ic1, oli9_ic2)
-
-  # Check if there is any image in the collection
-  if (check_01(oli_ic)) {
-    return(NULL)
-  }
-
-  # Get the images on the same time interval (timediff)
-  r_collocation <- sapply(
-    X = oli_ic$time_start,
-    FUN = function(x) {
-      vresults <- abs(as.numeric(msi_ic$time_start - x, units = "mins"))
-      c(min(vresults), which.min(vresults))
-    }
+  # Get metadata for satellite images
+  container[[index]] <- get_metadata(
+    sensorMSI = "COPERNICUS/S2_HARMONIZED",
+    sensorOLI8T1 = "LANDSAT/LC08/C02/T1_TOA",
+    sensorOLI8T2 = "LANDSAT/LC08/C02/T2_TOA",
+    sensorOLI9T1 = "LANDSAT/LC09/C02/T1_TOA",
+    sensorOLI9T2 = "LANDSAT/LC09/C02/T2_TOA",
+    timediff = 10, # Set the time difference to 10 minutes
+    point = coordinate
   )
-  r_difftime <- r_collocation[1, ]
-  idx_mss <- r_collocation[2, ]
 
-  # Check if the images are on the time interval (timediff)
-  if (sum(r_difftime < timediff) == 0) {
-    return(NULL)
-  }
-
-  # Create the final dataset
-  final_oli_ic <- oli_ic[r_difftime < timediff, ]
-  final_time <- r_difftime[r_difftime < timediff]
-  final_msi_ic <- msi_ic[idx_mss[r_difftime < timediff], ]
-
-  # Return the metadata
-  data.frame(
-    msi_id = final_msi_ic$id,
-    oli_id = final_oli_ic$id,
-    dif_time = round(final_time, 1),
-    roi_id = point$s2tile,
-    roi_x = st_coordinates(point)[1],
-    roi_y = st_coordinates(point)[2]
-  )
+  # # Download satellite images
+  # if (sum(is.na(container[[index]])) == 0) {
+  #   for (x in 1:nrow(container[[index]])) {
+  #     download(
+  #       img1 = container[[index]][x, ]$msi_id,
+  #       img2 = container[[index]][x, ]$oli_id,
+  #       point = coordinate,
+  #       output = "Results"
+  #     )
+  #   }
+  # } else {
+  #   print(sprintf("Point %d - %s has no matches", index, coordinate$s2tile))
+  # }
 }
-
-
-
-#' Download Earth Engine Images
-#'
-#' This function downloads Earth Engine images based on the specified parameters.
-#' It also applies an algorithm to adjust the geotransform of Sentinel-2 images to
-#' ensure proper alignment and prevent errors in the downloaded images.
-#'
-#' @param img1 The Earth Engine image ID for the Sentinel-2 image.
-#' @param img2 The Earth Engine image ID for the Landsat image.
-#' @param point The spatial point used as the reference for the download.
-#' @param output The output directory for saving the downloaded images.
-#'
-#' @return A list containing the downloaded satellite data for both Sentinel 2 MSI and Landsat 8 9 OLI
-download <- function(img1, img2, point, output, index) {
-  # Read Earth Engine images Select the bands: Red, Green, Blue, NIR
-  S2 <- ee$Image(img1)$select(c("B2", "B3", "B4", "B8"))$unmask(-99, sameFootprint = FALSE)
-  LT <- ee$Image(img2)$select(c("B2", "B3", "B4", "B5"))$unmask(-99, sameFootprint = FALSE)
-  
-  # Obtain proj metadata
-  proj_metadata <- S2$select("B2")$projection()$getInfo()
-  proj_transform <- proj_metadata$transform
-  proj_crs <- proj_metadata$crs
-
-  # Make that both images have the same CRS
-  proj_transform[1] <- 30
-  proj_transform[5] <- -30
-  LT_crs <- LT$reproject(proj_crs, proj_transform)
-
-  # Move the pixel to align to the geotransform
-  geom <- point$geometry
-  geom_utm <- st_transform(geom, proj_crs)
-  x <- geom_utm[[1]][1]
-  y <- geom_utm[[1]][2]
-  new_x <- proj_transform[3] + round((x - proj_transform[3]) / 10) * 10 + 10 / 2
-  new_y <- proj_transform[6] + round((y - proj_transform[6]) / 10) * 10 + 10 / 2
-  new_geom_utm <- st_sfc(st_point(c(new_x, new_y)), crs = proj_crs)
-
-  # Create ROI
-  roi <- new_geom_utm %>% st_buffer(3*4*30*32, endCapStyle = "SQUARE")
-  ee_roi <- sf_as_ee(roi, proj = proj_crs)
-
-  # Download the data
-  dir.create(sprintf("%s/S2", output), showWarnings = FALSE, recursive = TRUE)
-  dir.create(sprintf("%s/Landsat", output), showWarnings = FALSE, recursive = TRUE)
-  
-  output_file1 <- sprintf("%s/S2/ROI_%05d__%s.tif", output, index, basename(img1))
-  if (!file.exists(output_file1)) {
-    lr_image <- ee_as_rast(
-      image = S2,
-      region = ee_roi,
-      scale = 10,
-      dsn = output_file1
-    )
-  }
-
-  output_file2 <- sprintf("%s/Landsat/ROI_%05d__%s.tif", output, index, basename(img2))
-  if (!file.exists(output_file2)) {
-    hr_image <- ee_as_rast(
-      image = LT_crs,
-      region = ee_roi,
-      scale = 10,
-      dsn = output_file2
-    )
-  }
-}
-
-
-
-#' Download and process satellite images
-#'
-#' This function downloads satellite images based on the given metadata and performs
-#' necessary processing and saving operations.
-#'
-#' @param index The index value indicating the current point number.
-#' @param metadata The metadata containing information about satellite images.
-#' @param pathIMG The path where the downloaded images will be saved.
-#' @param pathMDT The path and filename for saving the metadata.
-#'
-#' @examples
-#' # Download satellite images for a given set of metadata
-
-ImagesDownload <-
-  function(index, metadata, pathIMG, pathMDT) { 
-    
-    # Print the index value
-    cat(
-      crayon::bgGreen(
-        crayon::black(
-          sprintf("Point number: %1$05d\n", index)
-        )
-      )
-    )
-    
-    # Get the coordinate data for the current row
-    coordinate <- metadata[index, ]
-    
-    # Get metadata for satellite images
-    container <- get_metadata(
-      sensorMSI = "COPERNICUS/S2_HARMONIZED",
-      sensorOLI8T1 = "LANDSAT/LC08/C02/T1_TOA",
-      sensorOLI8T2 = "LANDSAT/LC08/C02/T2_TOA",
-      sensorOLI9T1 = "LANDSAT/LC09/C02/T1_TOA",
-      sensorOLI9T2 = "LANDSAT/LC09/C02/T2_TOA",
-      timediff = 10, # Set the time difference to 10 minutes
-      point = coordinate
-    )
-    
-    # Download satellite images
-    for (x in 1:nrow(container)) {
-        download(
-            img1 = container[x, ]$msi_id,
-            img2 = container[x, ]$oli_id,
-            point = coordinate,
-            output = pathIMG,
-            index = index
-        )
-    }
-    
-    # Assign the value of 'index' to the 'index' column in 'container'
-    container$index <- index
-    
-    if (index == 1) {
-      # If it's the first index, save container as a new file
-      saveRDS(container, pathMDT)
-    } else {
-      # If it's not the first index, merge container with existing file
-      containerOLD <- readRDS(pathMDT)
-      container <- bind_rows(containerOLD, container)
-      orden <- order(container$index, container$msi_id, container$oli_id)
-      container <- container[orden, ]
-      # container <- container[!is.na(container$msi_id),]
-      
-      # Save container as an RDS file
-      saveRDS(
-        object = container,
-        file = pathMDT
-      )
-    }
-  }
+# Combine the metadata from all the containers into a single table
+id_metadata <- do.call(rbind, container)
+write.csv("exports/metadata.csv")

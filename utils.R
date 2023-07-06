@@ -49,7 +49,7 @@ get_metadata <- function(sensorMSI, sensorOLI8T1, sensorOLI8T2, sensorOLI9T1, se
 
   # Check if there is any image in the collection
   if (check_01(msi_ic)) {
-    return(NULL)
+    return(NA)
   }
 
   # Get the dates of the OLI8 images
@@ -73,7 +73,7 @@ get_metadata <- function(sensorMSI, sensorOLI8T1, sensorOLI8T2, sensorOLI9T1, se
 
   # Check if there is any image in the collection
   if (check_01(oli_ic)) {
-    return(NULL)
+    return(NA)
   }
 
   # Get the images on the same time interval (timediff)
@@ -84,12 +84,13 @@ get_metadata <- function(sensorMSI, sensorOLI8T1, sensorOLI8T2, sensorOLI9T1, se
       c(min(vresults), which.min(vresults))
     }
   )
+  
   r_difftime <- r_collocation[1, ]
   idx_mss <- r_collocation[2, ]
 
   # Check if the images are on the time interval (timediff)
   if (sum(r_difftime < timediff) == 0) {
-    return(NULL)
+    return(NA)
   }
 
   # Create the final dataset
@@ -97,9 +98,16 @@ get_metadata <- function(sensorMSI, sensorOLI8T1, sensorOLI8T2, sensorOLI9T1, se
   final_time <- r_difftime[r_difftime < timediff]
   final_msi_ic <- msi_ic[idx_mss[r_difftime < timediff], ]
 
+  # Sensor LT
+  Slt <- substr(final_oli_ic$id, 9, 12)
+  first <- substr(Slt, 1, 1)
+  last <- substr(Slt, nchar(Slt), nchar(Slt))
+  mission <- paste0(first, last)
+
   # Return the metadata
   data.frame(
     msi_id = final_msi_ic$id,
+    lt_mission = mission,
     oli_id = final_oli_ic$id,
     dif_time = round(final_time, 1),
     roi_id = point$s2tile,
@@ -124,11 +132,17 @@ get_metadata <- function(sensorMSI, sensorOLI8T1, sensorOLI8T2, sensorOLI9T1, se
 #' @return A list containing the downloaded satellite data for both Sentinel 2 MSI and Landsat 8 9 OLI
 download <- function(img1, img2, point, output) {
   # Read Earth Engine images Select the bands: Red, Green, Blue, NIR
-  S2 <- ee$Image(img1)$select(c("B2", "B3", "B4", "B8"))$unmask(-99, sameFootprint = FALSE)
-  LT <- ee$Image(img2)$select(paste0("SR_", c("B2", "B3", "B4", "B5")))$unmask(-99, sameFootprint = FALSE)
+  S2 <- ee$Image(img1)$
+           select(c("B1", "B2", "B3", "B4","B8A", "B11", "B12"))$
+           unmask(-99, sameFootprint = FALSE)
+  LT <- ee$Image(img2)$
+           select(c("B1", "B2", "B3", "B4", "B5", "B6", "B7"))$
+           unmask(-99, sameFootprint = FALSE)
 
   # Obtain proj metadata
-  proj_metadata <- S2$select("B2")$projection()$getInfo()
+  proj_metadata <- S2$select("B2")$
+                      projection()$
+                      getInfo()
   proj_transform <- proj_metadata$transform
   proj_crs <- proj_metadata$crs
 
@@ -147,11 +161,14 @@ download <- function(img1, img2, point, output) {
   new_geom_utm <- st_sfc(st_point(c(new_x, new_y)), crs = proj_crs)
 
   # Create ROI
-  roi <- new_geom_utm %>% st_buffer(3*4*30*32, endCapStyle = "SQUARE")
+  roi <- new_geom_utm %>% st_buffer(11520/2, endCapStyle = "SQUARE")
   ee_roi <- sf_as_ee(roi, proj = proj_crs)
 
   # Download the data
-  output_file1 <- paste0(output, "/", "S2_", gsub(".*/.*/(.*)", "\\1", img1), ".tif")
+  dir.create(sprintf("%s/S2", output), showWarnings = FALSE, recursive = TRUE)
+  dir.create(sprintf("%s/Landsat", output), showWarnings = FALSE, recursive = TRUE)
+  
+  output_file1 <- sprintf("%s/S2/ROI_%05d__%s.tif", output, index, basename(img1))
   if (!file.exists(output_file1)) {
     lr_image <- ee_as_rast(
       image = S2,
@@ -160,8 +177,8 @@ download <- function(img1, img2, point, output) {
       dsn = output_file1
     )
   }
-
-  output_file2 <- paste0(output, "/", gsub(".*/.*/(.*)", "\\1", img2), "_", point$s2tile, ".tif")
+  
+  output_file2 <- sprintf("%s/Landsat/ROI_%05d__%s.tif", output, index, basename(img2))
   if (!file.exists(output_file2)) {
     hr_image <- ee_as_rast(
       image = LT_crs,
