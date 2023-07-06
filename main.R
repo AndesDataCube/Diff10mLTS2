@@ -39,8 +39,7 @@ metadata <- read_sf("Data/s2landsatpairs.geojson")
 # Create metadata table for Landsat 8 (L8), Landsat 9 (L9) OLI, and Sentinel-2 MSI images with a time difference of 10 minutes
 container <- list()
 
-for (index in 1:2) { # Iterate over each row in the metadata
-
+for (index in 1:5) { # nrow(metada)
   # Print the index value
   print(index)
 
@@ -75,4 +74,4 @@ for (index in 1:2) { # Iterate over each row in the metadata
 # Combine the metadata from all the containers into a single table
 id_metadata <- do.call(rbind, container)
 id_metadata <- id_metadata[!is.na(id_metadata$msi_id),]
-write.csv("exports/metadata.csv")
+write.csv(id_metadata, "exports/metadata.csv", row.names = F)
