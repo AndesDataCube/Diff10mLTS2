@@ -5,8 +5,6 @@ library(dplyr) # Data manipulation and transformation
 library(rgee) # Interacting with Google Earth Engine
 library(sf) # Spatial data handling
 
-
-
 #' Check if a DataFrame is empty
 #'
 #' This function checks if a DataFrame is empty by evaluating the number of rows.
@@ -38,84 +36,83 @@ check_01 <- function(df) {
 #' @param output The output directory for the resulting metadata.
 #'
 #' @return A data frame containing the retrieved metadata, including MSI ID, OLI ID, ROI ID, and time difference.
-get_metadata <- function(sensorMSI, sensorOLI8T1, sensorOLI8T2, sensorOLI9T1, sensorOLI9T2, timediff, point, output) {
-  # From local to EE server
-  ee_point <- sf_as_ee(point$geometry)
+get_metadata <- function(point, timediff = 10) {
+    
+    # Sensors L8/9 y Sentinel-2
+    sensorMSI <- "COPERNICUS/S2_HARMONIZED"
+    sensorOLI8T1 <- "LANDSAT/LC08/C02/T1_TOA"
+    sensorOLI8T2 <- "LANDSAT/LC08/C02/T2_TOA"
+    sensorOLI9T1 <- "LANDSAT/LC09/C02/T1_TOA"
+    sensorOLI9T2 <- "LANDSAT/LC09/C02/T2_TOA"
+    
+    # From local to EE server
+    ee_point <- sf_as_ee(point$geometry)
 
-  # Get the dates of the MSI image
-  msi_ic <- ee$ImageCollection(sensorMSI) %>%
-    ee$ImageCollection$filterBounds(ee_point) %>%
-    ee_get_date_ic()
+    # Get the dates of the MSI image
+    msi_ic <- ee$ImageCollection(sensorMSI) %>%
+        ee$ImageCollection$filterBounds(ee_point)
 
-  # Check if there is any image in the collection
-  if (check_01(msi_ic)) {
-    return(NA)
-  }
-
-  # Get the dates of the OLI8 images
-  oli8_ic1 <- ee$ImageCollection(sensorOLI8T1) %>%
-    ee$ImageCollection$filterBounds(ee_point) %>%
-    ee_get_date_ic()
-  oli8_ic2 <- ee$ImageCollection(sensorOLI8T2) %>%
-    ee$ImageCollection$filterBounds(ee_point) %>%
-    ee_get_date_ic()
-
-  # Get the dates of the OLI9 images
-  oli9_ic1 <- ee$ImageCollection(sensorOLI9T1) %>%
-    ee$ImageCollection$filterBounds(ee_point) %>%
-    ee_get_date_ic()
-  oli9_ic2 <- ee$ImageCollection(sensorOLI9T2) %>%
-    ee$ImageCollection$filterBounds(ee_point) %>%
-    ee_get_date_ic()
-
-  # Merge OLI
-  oli_ic <- rbind(oli8_ic1, oli8_ic2, oli9_ic1, oli9_ic2)
-
-  # Check if there is any image in the collection
-  if (check_01(oli_ic)) {
-    return(NA)
-  }
-
-  # Get the images on the same time interval (timediff)
-  r_collocation <- sapply(
-    X = oli_ic$time_start,
-    FUN = function(x) {
-      vresults <- abs(as.numeric(msi_ic$time_start - x, units = "mins"))
-      c(min(vresults), which.min(vresults))
-    }
-  )
+    # Get the dates of the OLI8 images
+    oli8_ic1 <- ee$ImageCollection(sensorOLI8T1) %>%
+        ee$ImageCollection$filterBounds(ee_point)
+    
+    oli8_ic2 <- ee$ImageCollection(sensorOLI8T2) %>%
+        ee$ImageCollection$filterBounds(ee_point)
+    
+    # Get the dates of the OLI9 images
+    oli9_ic1 <- ee$ImageCollection(sensorOLI9T1) %>%
+        ee$ImageCollection$filterBounds(ee_point)
+    
+    oli9_ic2 <- ee$ImageCollection(sensorOLI9T2) %>%
+        ee$ImageCollection$filterBounds(ee_point)
+    
+    # merge all the ic together
+    all_together <- msi_ic$merge(oli8_ic1)$merge(oli8_ic2)$merge(oli9_ic1)$merge(oli9_ic2)
+    all_together_db <- all_together %>% ee_get_date_ic()
+    
+    S2_db <- all_together_db[grepl("COPERNICUS", all_together_db$id),]
+    oli_ic_db <- all_together_db[grepl("LANDSAT", all_together_db$id),]
   
-  r_difftime <- r_collocation[1, ]
-  idx_mss <- r_collocation[2, ]
+    # Get the images on the same time interval (timediff)
+    r_collocation <- sapply(
+        X = oli_ic_db$time_start,
+        FUN = function(x) {
+          vresults <- abs(as.numeric(S2_db$time_start - x, units = "mins"))
+          c(min(vresults), which.min(vresults))
+        }
+    )
+  
+    r_difftime <- r_collocation[1, ]
+    idx_mss <- r_collocation[2, ]
 
-  # Check if the images are on the time interval (timediff)
-  if (sum(r_difftime < timediff) == 0) {
-    return(NA)
-  }
+    # Check if the images are on the time interval (timediff)
+    if (sum(r_difftime < timediff) == 0) {
+        return(NA)
+    }
 
-  # Create the final dataset
-  final_oli_ic <- oli_ic[r_difftime < timediff, ]
-  final_time <- r_difftime[r_difftime < timediff]
-  final_msi_ic <- msi_ic[idx_mss[r_difftime < timediff], ]
+    # Create the final dataset
+    final_oli_ic <- oli_ic_db[r_difftime < timediff, ]
+    final_time <- r_difftime[r_difftime < timediff]
+    final_msi_ic <- S2_db[idx_mss[r_difftime < timediff], ]
 
-  # Sensor LT
-  Slt <- substr(final_oli_ic$id, 9, 12)
-  Tiers <- substr(final_oli_ic$id, 18, 19)
-  first <- substr(Slt, 1, 1)
-  last <- substr(Slt, nchar(Slt), nchar(Slt))
-  mission <- paste0(first, last)
+    # Sensor LT
+    Slt <- substr(final_oli_ic$id, 9, 12)
+    Tiers <- substr(final_oli_ic$id, 18, 19)
+    first <- substr(Slt, 1, 1)
+    last <- substr(Slt, nchar(Slt), nchar(Slt))
+    mission <- paste0(first, last)
 
-  # Return the metadata
-  data.frame(
-    msi_id = final_msi_ic$id,
-    lt_mission = mission,
-    Tier = Tiers,
-    oli_id = final_oli_ic$id,
-    dif_time = round(final_time, 1),
-    roi_id = point$s2tile,
-    roi_x = st_coordinates(point)[1],
-    roi_y = st_coordinates(point)[2]
-  )
+    # Return the metadata
+    df1 <- data.frame(
+        msi_id = final_msi_ic$id,
+        lt_mission = mission,
+        Tier = Tiers,
+        oli_id = final_oli_ic$id,
+        dif_time = round(final_time, 10),
+        roi_id = point$s2tile,
+        roi_x = st_coordinates(point)[1],
+        roi_y = st_coordinates(point)[2]
+    )
 }
 
 
@@ -190,3 +187,32 @@ download <- function(img1, img2, point, output) {
     )
   }
 }
+
+
+display_map <- function(row, max = 0.4) {
+    eeimg1 <- ee$Image(row$msi_id)$divide(10000)
+    eeimg2 <- ee$Image(row$oli_id)
+    
+    eel1 <- list(min=0, max=max, bands=c("B4", "B3", "B2"))
+    eel2 <- list(min=0, max=max, bands=c("B4", "B3", "B2"))
+    
+    Map$centerObject(eeimg1)
+    Map$addLayer(eeimg1, eel1) | Map$addLayer(eeimg2, eel2)
+}
+
+
+get_metadata_try <- function(point, timediff = 10) {
+    results <- try(
+      get_metadata(point=point, timediff=timediff)
+    )
+    counter <- 1
+    if (inherits(class(results),  "try-error")) {
+        get_metadata_try(point=point, timediff=timediff)
+        counter <- counter + 1
+        if (counter == 4) {
+            stop("Probably internet connection lost")
+        }
+    }
+    results
+}
+

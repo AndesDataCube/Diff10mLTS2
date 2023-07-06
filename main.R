@@ -38,24 +38,35 @@ metadata <- read_sf("Data/s2landsatpairs.geojson")
 
 # Create metadata table for Landsat 8 (L8), Landsat 9 (L9) OLI, and Sentinel-2 MSI images with a time difference of 10 minutes
 container <- list()
+for (index in 1:10) {
+    # Print the index value
+    print(index)
 
-for (index in 1:5) { # nrow(metada)
-  # Print the index value
-  print(index)
+    # Get the coordinate data for the current row
+    coordinate <- metadata[index, ]
+    
+    # Get metadata for satellite images
+    img_metadata <- get_metadata_try(
+        point = coordinate,
+        timediff = 10
+    )
+    container[[index]] <- img_metadata
+}
 
-  # Get the coordinate data for the current row
-  coordinate <- metadata[index, ]
 
-  # Get metadata for satellite images
-  container[[index]] <- get_metadata(
-    sensorMSI = "COPERNICUS/S2_HARMONIZED",
-    sensorOLI8T1 = "LANDSAT/LC08/C02/T1_TOA",
-    sensorOLI8T2 = "LANDSAT/LC08/C02/T2_TOA",
-    sensorOLI9T1 = "LANDSAT/LC09/C02/T1_TOA",
-    sensorOLI9T2 = "LANDSAT/LC09/C02/T2_TOA",
-    timediff = 10, # Set the time difference to 10 minutes
-    point = coordinate
-  )
+# Combine the metadata from all the containers into a single table
+id_metadata <- do.call(rbind, container)
+id_metadata <- id_metadata[!is.na(id_metadata$msi_id),]
+write.csv(id_metadata, "exports/metadata.csv", row.names = F)
+
+
+
+row <- id_metadata[order(id_metadata$dif_time),][1:30, ]
+df <- st_as_sf(x = row, coords = c("roi_x", "roi_y"), crs = 4326)
+display_map(dff, max = 1)
+
+#write.csv(id_metadata, "exports/metadata.csv", row.names = F)
+
 
   # # Download satellite images
   # if (sum(is.na(container[[index]])) == 0) {
@@ -70,8 +81,3 @@ for (index in 1:5) { # nrow(metada)
   # } else {
   #   print(sprintf("Point %d - %s has no matches", index, coordinate$s2tile))
   # }
-}
-# Combine the metadata from all the containers into a single table
-id_metadata <- do.call(rbind, container)
-id_metadata <- id_metadata[!is.na(id_metadata$msi_id),]
-write.csv(id_metadata, "exports/metadata.csv", row.names = F)
