@@ -201,18 +201,16 @@ display_map <- function(row, max = 0.4) {
 }
 
 
-get_metadata_try <- function(point, timediff = 10) {
+get_metadata_try <- function(point, timediff = 10, counter = 1) {
     results <- try(
       get_metadata(point=point, timediff=timediff)
     )
-    counter <- 1
+    
     if (inherits(class(results),  "try-error")) {
-        get_metadata_try(point=point, timediff=timediff)
         counter <- counter + 1
-        if (counter == 4) {
-            stop("Probably internet connection lost")
-        }
-    }
+        if (counter == 5) stop("Probably internet connection lost")
+        get_metadata_try(point=point, timediff=timediff, counter = counter)
+    } 
+    
     results
 }
-
