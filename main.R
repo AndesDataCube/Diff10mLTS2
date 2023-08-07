@@ -23,61 +23,90 @@
 
 
 
-# Load required libraries
+
+# Load required libraries -------------------------------------------------
 library(rgee) # Interacting with Google Earth Engine
 library(sf) # Spatial data handling
 
-# Load the utility functions from 'utils.R' file
+
+
+# Load the utility functions from 'utils.R' file --------------------------
 source("utils.R")
 
-# Initialize EE
-ee_Initialize()
 
-# Load initial dataset
-metadata <- read_sf("Data/s2landsatpairs.geojson")
 
-# Create metadata table for Landsat 8 (L8), Landsat 9 (L9) OLI, and Sentinel-2 MSI images with a time difference of 10 minutes
+# Initialize EE -----------------------------------------------------------
+ee_Initialize(user = "julio.contreras1@unmsm.edu.pe", drive = T)
+
+
+# Snippets for sensors and level
+list_of_snippets1 <- c(
+  "COPERNICUS/S2_HARMONIZED"
+  )
+list_of_snippets1 <- c(
+  "LANDSAT/LC08/C02/T1_TOA",
+  "LANDSAT/LC08/C02/T2_TOA",
+  "LANDSAT/LC09/C02/T1_TOA",
+  "LANDSAT/LC09/C02/T2_TOA"
+  )
+
+
+
+# Load initial dataset ----------------------------------------------------
+metadata <- read_sf("Data/points.csv")
+
+
+
+# Create metadata table, difference 10 seconds ----------------------------
 container <- list()
-for (index in 1:10) {
-    # Print the index value
-    print(index)
-
-    # Get the coordinate data for the current row
-    coordinate <- metadata[index, ]
-    
-    # Get metadata for satellite images
-    img_metadata <- get_metadata_try(
-        point = coordinate,
-        timediff = 10
-    )
-    container[[index]] <- img_metadata
+for (index in 1:nrow(metadata)) { # 1000
+  
+  # Print the index value
+  print(index)
+  
+  # Get the coordinate data for the current row
+  coordinate <- metadata[index, ]
+  
+  # Get metadata for satellite images
+  img_metadata <- get_metadata_try(
+    point = coordinate,
+    sensors = c("COPERNICUS", "LANDSAT"),
+    snip1 = list_of_snippets1,
+    snip2 = list_of_snippets2,
+    units = "mins",
+    scale = 10, 
+    side = 11520,
+    timediff = 30,
+    max_ob = 35
+  )
+  container[[index]] <- img_metadata
 }
 
-
-# Combine the metadata from all the containers into a single table
 id_metadata <- do.call(rbind, container)
-id_metadata <- id_metadata[!is.na(id_metadata$msi_id),]
-write.csv(id_metadata, "exports/metadata.csv", row.names = F)
+id_metadata <- id_metadata[!is.na(id_metadata$mss_id),]
+# write.csv("exports/metadata.csv")
 
 
 
-row <- id_metadata[order(id_metadata$dif_time),][1:30, ]
-df <- st_as_sf(x = row, coords = c("roi_x", "roi_y"), crs = 4326)
-display_map(dff, max = 1)
+# Display -----------------------------------------------------------------
+df <- read.csv("exports/metadata_final.csv")
+row <- df[67, ]
+DisplayTransform(row = row, 
+                 mode = "points", # comparison
+                 distance = 11520,
+                 max = 0.7)
 
-#write.csv(id_metadata, "exports/metadata.csv", row.names = F)
 
 
-  # # Download satellite images
-  # if (sum(is.na(container[[index]])) == 0) {
-  #   for (x in 1:nrow(container[[index]])) {
-  #     download(
-  #       img1 = container[[index]][x, ]$msi_id,
-  #       img2 = container[[index]][x, ]$oli_id,
-  #       point = coordinate,
-  #       output = "Results"
-  #     )
-  #   }
-  # } else {
-  #   print(sprintf("Point %d - %s has no matches", index, coordinate$s2tile))
-  # }
+# Download satellite images -----------------------------------------------
+df <- read.csv("exports/metadata_final.csv")
+for (x in 1:nrow(df)) {
+  row = df[x, ]
+  download(
+    row = row,
+    sensors = c("MSI", "OLI"),
+    side = 11520,
+    output = "results"
+  )
+}
+

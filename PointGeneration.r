@@ -14,7 +14,9 @@ world <- ne_countries(scale = "small", returnclass = "sf")
 world <- world[world$name != "Antarctica",]
 world <- st_union(st_cast(st_make_valid(world$geom), "POLYGON"))
 
+points <- st_read("Data/s2landsatpairs.geojson")
 
+mapview::mapview(points)
 # 2. We need a planar projection to use spatstat (i'm using mercator, probably no the best idea)
 # I'm doing the searching point in a simple geometry (st_bbox) because it will be faster
 roi <- world %>%
