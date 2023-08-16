@@ -36,7 +36,7 @@ source("utils.R")
 
 
 # Initialize EE -----------------------------------------------------------
-ee_Initialize(user = "julio.contreras1@unmsm.edu.pe", drive = T)
+ee_Initialize()
 
 
 # Snippets for sensors and level
@@ -57,9 +57,9 @@ metadata <- read_sf("Data/points.csv")
 
 
 
-# Create metadata table, difference 10 seconds ----------------------------
+# Create metadata table, difference 30 minutes ----------------------------
 container <- list()
-for (index in 1:nrow(metadata)) { # 1000
+for (index in 1:nrow(metadata)) { 
   
   # Print the index value
   print(index)

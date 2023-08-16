@@ -132,56 +132,6 @@ init_coord_image <- function(axis, proj) {
 
 
 
-#' Transfer coordinates based on initial coordinate and constant.
-#'
-#' This function transfers the given coordinates based on an initial coordinate and a constant factor.
-#'
-#' @param coord A numeric vector representing the coordinates to transfer.
-#'
-#' @param coord_ini A numeric vector representing the initial coordinates.
-#' 
-#' @param const A numeric constant factor to apply during the coordinate transfer.
-#'
-#' @return A numeric vector containing the transferred coordinates.
-#'
-#' @export
-coord_transfer <- function(coord, coord_ini, scale) {
-  coord_ini$
-    add(coord$
-          add(coord_ini$multiply(-1))$
-          multiply(1 / scale)$
-          round()$
-          multiply(scale))$
-    add(scale / 2)
-}
-
-
-
-#' Create an Earth Engine point geometry.
-#'
-#' This function creates an Earth Engine point geometry with the given x and y coordinates.
-#'
-#' @param x The x-coordinate of the point.
-#'
-#' @param y The y-coordinate of the point.
-#'
-#' @param proj An Earth Engine projection object.
-#'   This should be a valid projection object that defines the target coordinate reference system (CRS).
-#'
-#' @return An Earth Engine point geometry object.
-#'
-#' @examples
-#' # Assuming 'x' and 'y' are valid numeric coordinates, and 'proj' is a valid projection object
-#' point_geometry <- create_point(x, y, proj)
-#' print(point_geometry)
-#'
-#' @export
-create_point <- function(x, y, proj) {
-  ee$Geometry$Point(list(x, y), proj$crs())
-}
-
-
-
 #' Create a region of interest (ROI) around a point.
 #'
 #' This function creates a region of interest (ROI) around the specified point with a given side length.

@@ -86,7 +86,7 @@ df <- data.frame(
 
 
 
-3a1 <- get_crs(points[1, ])
+a1 <- get_crs(points[1, ])
 a2 <- get_crs(points[2, ])
 
 ee$ImageCollection$fromImages(container)$aggregate_array("new_x")$getInfo()
